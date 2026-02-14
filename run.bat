@@ -1,4 +1,6 @@
 @echo off
+:: UTF-8 코드 페이지로 변경 (한글 깨짐 방지)
+chcp 65001 > nul
 title Image Loading Lazy Converter
 setlocal enabledelayedexpansion
 
