@@ -1,0 +1,6 @@
+node_modules/
+output/
+test.png
+input/test.html
+input/test.php
+.gemini/

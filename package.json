@@ -1,0 +1,24 @@
+{
+  "name": "loadinglazy",
+  "version": "1.0.0",
+  "description": "HTML 내 `<img>` 태그에 `loading=\"lazy\"` 속성을 자동으로 추가하고, 이미지 실제 크기를 계산해 `width`, `height`, `style` 속성을 넣어주는 스크립트임.",
+  "main": "convert_loading_lazy.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/R00neyj/img_loading_lazy.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/R00neyj/img_loading_lazy/issues"
+  },
+  "homepage": "https://github.com/R00neyj/img_loading_lazy#readme",
+  "dependencies": {
+    "cheerio": "^1.2.0"
+  }
+}
