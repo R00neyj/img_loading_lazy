@@ -12,10 +12,20 @@ const CONFIG = {
 
 function getImageSize(imgSrc, htmlDir) {
     try {
+        // 1. 기본 경로 조합 (HTML 파일 위치 기준)
         let fullPath = path.isAbsolute(imgSrc) ? imgSrc : path.join(htmlDir, imgSrc);
+        
+        // 2. 만약 파일이 없고, 경로가 '/'로 시작한다면 (루트 상대 경로 대응)
+        if (!fs.existsSync(fullPath) && imgSrc.startsWith('/')) {
+            // 맨 앞의 '/'를 제거하고 프로젝트 루트(__dirname)와 합침
+            fullPath = path.join(__dirname, imgSrc.substring(1));
+        }
+
+        // 3. 그래도 없으면 프로젝트 루트 기준으로 다시 한 번 체크
         if (!fs.existsSync(fullPath)) {
             fullPath = path.join(__dirname, imgSrc);
         }
+
         if (!fs.existsSync(fullPath)) return null;
 
         const buffer = fs.readFileSync(fullPath);
