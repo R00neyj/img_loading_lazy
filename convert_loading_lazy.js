@@ -2,9 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const cheerio = require('cheerio');
 
+// 설정 (인자값으로 단위 선택 가능)
 const CONFIG = {
     inputDir: path.join(__dirname, 'input'),
-    outputDir: path.join(__dirname, 'output')
+    outputDir: path.join(__dirname, 'output'),
+    unit: process.argv[2] === 'vw' ? 'vw' : 'rem', // 기본값 rem
+    baseWidth: parseInt(process.argv[3]) || 1920   // vw 사용 시 기준 가로폭 (기본 1920)
 };
 
 function getImageSize(imgSrc, htmlDir) {
@@ -55,18 +58,16 @@ function processFile(fileName) {
 
     let content = fs.readFileSync(inputPath, 'utf8');
     
-    // 1단계: 보호 (Placeholder) - cheerio가 속성으로 오해하지 않도록 'data-' 접두사 사용
     const placeholders = [];
     const phpAndCommentRegex = /(<\?php[\s\S]*?\?>)|(<!--[\s\S]*?-->)/gi;
 
     content = content.replace(phpAndCommentRegex, (match) => {
-        const id = `PROTECTEDBLOCK${placeholders.length}`; // 특수기호 제거
+        const id = `PROTECTEDBLOCK${placeholders.length}`;
         placeholders.push(match);
         return id;
     });
 
-    // 2단계: 파싱 (Cheerio)
-    const $ = cheerio.load(content, { decodeEntities: false, xmlMode: false });
+    const $ = cheerio.load(content, { decodeEntities: false });
 
     $('img').each((index, el) => {
         const $img = $(el);
@@ -80,34 +81,37 @@ function processFile(fileName) {
                 if (!$img.attr('width')) $img.attr('width', size.width);
                 if (!$img.attr('height')) $img.attr('height', size.height);
 
-                const remW = (size.width / 10).toFixed(1);
+                // 단위 계산
+                let widthValue;
+                if (CONFIG.unit === 'vw') {
+                    widthValue = ((size.width / CONFIG.baseWidth) * 100).toFixed(4) + 'vw';
+                } else {
+                    widthValue = (size.width / 10).toFixed(1) + 'rem';
+                }
+
                 let currentStyle = $img.attr('style') || '';
                 if (!/width\s*:/i.test(currentStyle)) {
                     if (currentStyle && !currentStyle.endsWith(';')) currentStyle += ';';
-                    currentStyle = `${currentStyle} width: ${remW}rem;`.trim();
+                    currentStyle = `${currentStyle} width: ${widthValue};`.trim();
                     $img.attr('style', currentStyle);
                 }
             }
         }
     });
 
-    // 3단계: 복원 (Restore) - cheerio가 소문자로 바꿀 수 있으므로 정규식으로 대응
     let convertedContent = $.html();
-    
-    // 조각(Fragment) 처리: <html> 태그가 없었으면 body 내용만 추출
     if (!content.toLowerCase().includes('<html')) {
         convertedContent = $('body').html();
     }
 
     placeholders.forEach((original, index) => {
         const id = `PROTECTEDBLOCK${index}`;
-        // cheerio가 PROTECTEDBLOCK0="" 처럼 만들었을 경우를 위해 정규식으로 치환
         const regex = new RegExp(`${id}(=\"\")?`, 'gi');
         convertedContent = convertedContent.replace(regex, original);
     });
 
     fs.writeFileSync(outputPath, convertedContent, 'utf8');
-    console.log(`[성공] ${fileName}`);
+    console.log(`[성공] ${fileName} (${CONFIG.unit} 적용)`);
 }
 
 async function run() {
@@ -115,11 +119,13 @@ async function run() {
     if (!fs.existsSync(CONFIG.outputDir)) fs.mkdirSync(CONFIG.outputDir);
 
     const files = fs.readdirSync(CONFIG.inputDir).filter(file => file.endsWith('.html') || file.endsWith('.php'));
-    if (files.length === 0) return;
+    if (files.length === 0) {
+        console.log('input 폴더에 파일이 없습니다.');
+        return;
+    }
 
-    console.log(`${files.length}개의 파일 처리를 시작합니다...`);
+    console.log(`모드: ${CONFIG.unit} (기준: ${CONFIG.baseWidth}px)`);
     files.forEach(processFile);
-    console.log('\n모든 작업이 완료되었습니다.');
 }
 
 run();
