@@ -1,14 +1,26 @@
 const fs = require('fs');
 const path = require('path');
+const readline = require('readline');
 
-// 설정 (인자값으로 단위 및 로딩레이지 여부 선택 가능)
-const CONFIG = {
-    inputDir: path.join(__dirname, 'input'),
-    outputDir: path.join(__dirname, 'output'),
-    unit: process.argv[2] === 'vw' ? 'vw' : 'rem', // 기본값 rem
-    baseWidth: parseInt(process.argv[3]) || 1920,   // vw 사용 시 기준 가로폭
-    useLazy: process.argv[4] !== 'false'           // 기본값 true (명시적으로 'false'일 때만 해제)
+// 설정 초기화
+let CONFIG = {
+    inputDir: path.join(process.cwd(), 'input'),
+    outputDir: path.join(process.cwd(), 'output'),
+    unit: 'rem',
+    baseWidth: 1920,
+    useLazy: true
 };
+
+async function askQuestion(query) {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+    });
+    return new Promise(resolve => rl.question(query, ans => {
+        rl.close();
+        resolve(ans);
+    }));
+}
 
 // 이미지 크기 추출 함수 (기존 로직 유지)
 function getImageSize(imgSrc, htmlDir) {
@@ -138,17 +150,74 @@ function processFile(fileName) {
 }
 
 async function run() {
-    if (!fs.existsSync(CONFIG.inputDir)) fs.mkdirSync(CONFIG.inputDir);
+    console.log('==========================================');
+    console.log('   Image Loading Lazy Converter v1.7.0');
+    console.log('==========================================\n');
+
+    // 1. 필수 폴더 및 파일 확인 (있을 때까지 대기)
+    while (true) {
+        const imagesDir = path.join(process.cwd(), 'images');
+        let folderCreated = false;
+
+        if (!fs.existsSync(CONFIG.inputDir)) {
+            fs.mkdirSync(CONFIG.inputDir);
+            folderCreated = true;
+        }
+        if (!fs.existsSync(imagesDir)) {
+            fs.mkdirSync(imagesDir);
+            folderCreated = true;
+        }
+
+        const files = fs.existsSync(CONFIG.inputDir) 
+            ? fs.readdirSync(CONFIG.inputDir).filter(file => file.endsWith('.html') || file.endsWith('.php'))
+            : [];
+
+        if (folderCreated || files.length === 0) {
+            console.log('[알림] 대기 중: input 폴더에 처리할 파일(.html, .php)이 없습니다.');
+            console.log('       1. input 폴더에 HTML/PHP 파일을 넣으세요.');
+            console.log('       2. images 폴더에 소스 이미지들을 넣으세요.');
+            await askQuestion('\n파일을 넣으셨다면 엔터를 눌러 계속 진행하세요 (종료: Ctrl+C)...');
+            console.log('\n다시 확인 중...\n');
+            continue;
+        }
+        break;
+    }
+
+    // 2. 설정 확인 (인자값 또는 대화형)
+    if (process.argv.length > 2) {
+        CONFIG.unit = process.argv[2] === 'vw' ? 'vw' : 'rem';
+        CONFIG.baseWidth = parseInt(process.argv[3]) || (CONFIG.unit === 'vw' ? 1920 : 10);
+        CONFIG.useLazy = process.argv[4] !== 'false';
+    } else {
+        const unitChoice = await askQuestion('사용할 단위를 선택하세요 (1: rem, 2: vw) [기본 1]: ');
+        if (unitChoice === '2') {
+            CONFIG.unit = 'vw';
+            const base = await askQuestion('기준 가로폭 입력 [기본 1920]: ');
+            CONFIG.baseWidth = parseInt(base) || 1920;
+        } else {
+            CONFIG.unit = 'rem';
+            CONFIG.baseWidth = 10;
+        }
+
+        const lazyChoice = await askQuestion('로딩 레이지(loading="lazy")를 적용하시겠습니까? (Y/N) [기본 Y]: ');
+        CONFIG.useLazy = lazyChoice.toLowerCase() !== 'n';
+    }
+
     if (!fs.existsSync(CONFIG.outputDir)) fs.mkdirSync(CONFIG.outputDir);
 
     const files = fs.readdirSync(CONFIG.inputDir).filter(file => file.endsWith('.html') || file.endsWith('.php'));
-    if (files.length === 0) {
-        console.log('input 폴더에 파일이 없습니다.');
-        return;
-    }
-
-    console.log(`모드: ${CONFIG.unit} (기준: ${CONFIG.baseWidth}px), 로딩레이지: ${CONFIG.useLazy ? '사용' : '사용안함'}`);
+    
+    console.log(`\n모드: ${CONFIG.unit} (기준: ${CONFIG.baseWidth}px), 로딩레이지: ${CONFIG.useLazy ? 'ON' : 'OFF'}`);
     files.forEach(processFile);
+
+    console.log('\n==========================================');
+    console.log('   작업 완료! output 폴더를 확인하세요.');
+    console.log('==========================================');
+
+    // exe 실행 시 바로 닫히는 것 방지
+    if (process.argv.length <= 2) {
+        await askQuestion('\n종료하려면 엔터를 누르세요...');
+    }
 }
 
 run();
