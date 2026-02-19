@@ -8,3 +8,4 @@ input/test_*.html
 .gemini/
 images
 input
+*.exe
