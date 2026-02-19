@@ -1,31 +1,25 @@
 const fs = require('fs');
 const path = require('path');
-const cheerio = require('cheerio');
 
-// 설정 (인자값으로 단위 선택 가능)
+// 설정 (인자값으로 단위 및 로딩레이지 여부 선택 가능)
 const CONFIG = {
     inputDir: path.join(__dirname, 'input'),
     outputDir: path.join(__dirname, 'output'),
     unit: process.argv[2] === 'vw' ? 'vw' : 'rem', // 기본값 rem
-    baseWidth: parseInt(process.argv[3]) || 1920   // vw 사용 시 기준 가로폭 (기본 1920)
+    baseWidth: parseInt(process.argv[3]) || 1920,   // vw 사용 시 기준 가로폭
+    useLazy: process.argv[4] !== 'false'           // 기본값 true (명시적으로 'false'일 때만 해제)
 };
 
+// 이미지 크기 추출 함수 (기존 로직 유지)
 function getImageSize(imgSrc, htmlDir) {
     try {
-        // 1. 기본 경로 조합 (HTML 파일 위치 기준)
         let fullPath = path.isAbsolute(imgSrc) ? imgSrc : path.join(htmlDir, imgSrc);
-        
-        // 2. 만약 파일이 없고, 경로가 '/'로 시작한다면 (루트 상대 경로 대응)
         if (!fs.existsSync(fullPath) && imgSrc.startsWith('/')) {
-            // 맨 앞의 '/'를 제거하고 프로젝트 루트(__dirname)와 합침
             fullPath = path.join(__dirname, imgSrc.substring(1));
         }
-
-        // 3. 그래도 없으면 프로젝트 루트 기준으로 다시 한 번 체크
         if (!fs.existsSync(fullPath)) {
             fullPath = path.join(__dirname, imgSrc);
         }
-
         if (!fs.existsSync(fullPath)) return null;
 
         const buffer = fs.readFileSync(fullPath);
@@ -67,31 +61,38 @@ function processFile(fileName) {
     const htmlDir = path.dirname(inputPath);
 
     let content = fs.readFileSync(inputPath, 'utf8');
-    
-    const placeholders = [];
-    const phpAndCommentRegex = /(<\?php[\s\S]*?\?>)|(<!--[\s\S]*?-->)/gi;
 
-    content = content.replace(phpAndCommentRegex, (match) => {
-        const id = `PROTECTEDBLOCK${placeholders.length}`;
+    // 1. 주석과 PHP 블록을 임시 치환
+    const placeholders = [];
+    content = content.replace(/(<\?php[\s\S]*?\?>)|(<!--[\s\S]*?-->)/gi, (match) => {
+        const placeholder = `__PROTECTED_BLOCK_${placeholders.length}__`;
         placeholders.push(match);
-        return id;
+        return placeholder;
     });
 
-    const $ = cheerio.load(content, { decodeEntities: false });
-
-    $('img').each((index, el) => {
-        const $img = $(el);
-        const src = $img.attr('src');
-
-        if (!$img.attr('loading')) $img.attr('loading', 'lazy');
-
-        if (src) {
+    // 2. <img> 태그 처리
+    const imgRegex = /<img\b([^>]*)>/gi;
+    content = content.replace(imgRegex, (match, attributes) => {
+        // 셀프 클로징 슬래시(/) 여부 확인 및 제거
+        let isSelfClosing = attributes.trim().endsWith('/');
+        let cleanAttributes = isSelfClosing ? attributes.trim().slice(0, -1).trim() : attributes.trim();
+        
+        // src 추출
+        const srcMatch = cleanAttributes.match(/src=["']([^"']+)["']/i);
+        if (srcMatch) {
+            const src = srcMatch[1];
             const size = getImageSize(src, htmlDir);
+            
             if (size) {
-                if (!$img.attr('width')) $img.attr('width', size.width);
-                if (!$img.attr('height')) $img.attr('height', size.height);
+                // width, height 속성 추가 (없을 때만)
+                if (!cleanAttributes.includes('width=')) {
+                    cleanAttributes += ` width="${size.width}"`;
+                }
+                if (!cleanAttributes.includes('height=')) {
+                    cleanAttributes += ` height="${size.height}"`;
+                }
 
-                // 단위 계산
+                // style width 추가
                 let widthValue;
                 if (CONFIG.unit === 'vw') {
                     widthValue = ((size.width / CONFIG.baseWidth) * 100).toFixed(4) + 'vw';
@@ -99,29 +100,41 @@ function processFile(fileName) {
                     widthValue = (size.width / 10).toFixed(1) + 'rem';
                 }
 
-                let currentStyle = $img.attr('style') || '';
-                if (!/width\s*:/i.test(currentStyle)) {
-                    if (currentStyle && !currentStyle.endsWith(';')) currentStyle += ';';
-                    currentStyle = `${currentStyle} width: ${widthValue};`.trim();
-                    $img.attr('style', currentStyle);
+                if (cleanAttributes.includes('style=')) {
+                    if (!/style=["'][^"']*width\s*:/i.test(cleanAttributes)) {
+                        cleanAttributes = cleanAttributes.replace(/style=(["'])([^"']*)\1/i, (sMatch, quote, styleValue) => {
+                            const separator = styleValue.trim() && !styleValue.trim().endsWith(';') ? ';' : '';
+                            return `style=${quote}${styleValue}${separator} width: ${widthValue};${quote}`;
+                        });
+                    }
+                } else {
+                    cleanAttributes += ` style="width: ${widthValue};"`;
                 }
             }
         }
+
+        // loading="lazy" 및 decoding="async" 추가 여부 결정
+        let extraAttrs = '';
+        if (CONFIG.useLazy && !cleanAttributes.includes('loading=')) {
+            extraAttrs += ' loading="lazy"';
+        }
+        if (CONFIG.useLazy && !cleanAttributes.includes('decoding=')) {
+            extraAttrs += ' decoding="async"';
+        }
+
+        // 태그 재조립 (슬래시 위치 고정)
+        const finalTag = `<img ${cleanAttributes}${extraAttrs} ${isSelfClosing ? '/' : ''}>`;
+        return finalTag.replace(/\s+/g, ' ').replace(/\s>/g, '>');
     });
 
-    let convertedContent = $.html();
-    if (!content.toLowerCase().includes('<html')) {
-        convertedContent = $('body').html();
-    }
-
+    // 3. 보호된 블록 복구
     placeholders.forEach((original, index) => {
-        const id = `PROTECTEDBLOCK${index}`;
-        const regex = new RegExp(`${id}(=\"\")?`, 'gi');
-        convertedContent = convertedContent.replace(regex, original);
+        const placeholder = `__PROTECTED_BLOCK_${index}__`;
+        content = content.replace(placeholder, () => original);
     });
 
-    fs.writeFileSync(outputPath, convertedContent, 'utf8');
-    console.log(`[성공] ${fileName} (${CONFIG.unit} 적용)`);
+    fs.writeFileSync(outputPath, content, 'utf8');
+    console.log(`[성공] ${fileName} (레이지: ${CONFIG.useLazy ? 'ON' : 'OFF'}, 단위: ${CONFIG.unit})`);
 }
 
 async function run() {
@@ -134,7 +147,7 @@ async function run() {
         return;
     }
 
-    console.log(`모드: ${CONFIG.unit} (기준: ${CONFIG.baseWidth}px)`);
+    console.log(`모드: ${CONFIG.unit} (기준: ${CONFIG.baseWidth}px), 로딩레이지: ${CONFIG.useLazy ? '사용' : '사용안함'}`);
     files.forEach(processFile);
 }
 

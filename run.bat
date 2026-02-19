@@ -40,7 +40,16 @@ if "%choice%"=="2" (
 )
 
 echo.
-node convert_loading_lazy.js %UNIT% %base%
+echo  로딩 레이지(loading="lazy")를 적용하시겠습니까?
+set /p lazy_choice=" 선택 (Y/N, 기본 Y): "
+if /i "%lazy_choice%"=="N" (
+    set USE_LAZY=false
+) else (
+    set USE_LAZY=true
+)
+
+echo.
+node convert_loading_lazy.js %UNIT% %base% %USE_LAZY%
 
 echo ==========================================
 echo    작업 완료! output 폴더를 확인하세요.
