@@ -27,10 +27,10 @@ function getImageSize(imgSrc, htmlDir) {
     try {
         let fullPath = path.isAbsolute(imgSrc) ? imgSrc : path.join(htmlDir, imgSrc);
         if (!fs.existsSync(fullPath) && imgSrc.startsWith('/')) {
-            fullPath = path.join(__dirname, imgSrc.substring(1));
+            fullPath = path.join(process.cwd(), imgSrc.substring(1));
         }
         if (!fs.existsSync(fullPath)) {
-            fullPath = path.join(__dirname, imgSrc);
+            fullPath = path.join(process.cwd(), imgSrc);
         }
         if (!fs.existsSync(fullPath)) return null;
 
@@ -104,23 +104,25 @@ function processFile(fileName) {
                     cleanAttributes += ` height="${size.height}"`;
                 }
 
-                // style width 추가
-                let widthValue;
-                if (CONFIG.unit === 'vw') {
-                    widthValue = ((size.width / CONFIG.baseWidth) * 100).toFixed(4) + 'vw';
-                } else {
-                    widthValue = (size.width / 10).toFixed(1) + 'rem';
-                }
-
-                if (cleanAttributes.includes('style=')) {
-                    if (!/style=["'][^"']*width\s*:/i.test(cleanAttributes)) {
-                        cleanAttributes = cleanAttributes.replace(/style=(["'])([^"']*)\1/i, (sMatch, quote, styleValue) => {
-                            const separator = styleValue.trim() && !styleValue.trim().endsWith(';') ? ';' : '';
-                            return `style=${quote}${styleValue}${separator} width: ${widthValue};${quote}`;
-                        });
+                // style width 추가 (단위가 'none'이 아닐 때만)
+                if (CONFIG.unit !== 'none') {
+                    let widthValue;
+                    if (CONFIG.unit === 'vw') {
+                        widthValue = ((size.width / CONFIG.baseWidth) * 100).toFixed(4) + 'vw';
+                    } else {
+                        widthValue = (size.width / 10).toFixed(1) + 'rem';
                     }
-                } else {
-                    cleanAttributes += ` style="width: ${widthValue};"`;
+
+                    if (cleanAttributes.includes('style=')) {
+                        if (!/style=["'][^"']*width\s*:/i.test(cleanAttributes)) {
+                            cleanAttributes = cleanAttributes.replace(/style=(["'])([^"']*)\1/i, (sMatch, quote, styleValue) => {
+                                const separator = styleValue.trim() && !styleValue.trim().endsWith(';') ? ';' : '';
+                                return `style=${quote}${styleValue}${separator} width: ${widthValue};${quote}`;
+                            });
+                        }
+                    } else {
+                        cleanAttributes += ` style="width: ${widthValue};"`;
+                    }
                 }
             }
         }
@@ -151,7 +153,7 @@ function processFile(fileName) {
 
 async function run() {
     console.log('==========================================');
-    console.log('   Image Loading Lazy Converter v1.7.0');
+    console.log('   Image Loading Lazy Converter v1.8.0');
     console.log('==========================================\n');
 
     // 1. 필수 폴더 및 파일 확인 (있을 때까지 대기)
@@ -185,15 +187,22 @@ async function run() {
 
     // 2. 설정 확인 (인자값 또는 대화형)
     if (process.argv.length > 2) {
-        CONFIG.unit = process.argv[2] === 'vw' ? 'vw' : 'rem';
+        const argUnit = process.argv[2];
+        if (argUnit === 'none') {
+            CONFIG.unit = 'none';
+        } else {
+            CONFIG.unit = argUnit === 'vw' ? 'vw' : 'rem';
+        }
         CONFIG.baseWidth = parseInt(process.argv[3]) || (CONFIG.unit === 'vw' ? 1920 : 10);
         CONFIG.useLazy = process.argv[4] !== 'false';
     } else {
-        const unitChoice = await askQuestion('사용할 단위를 선택하세요 (1: rem, 2: vw) [기본 1]: ');
+        const unitChoice = await askQuestion('사용할 단위를 선택하세요 (1: rem, 2: vw, 3: none(생략)) [기본 1]: ');
         if (unitChoice === '2') {
             CONFIG.unit = 'vw';
             const base = await askQuestion('기준 가로폭 입력 [기본 1920]: ');
             CONFIG.baseWidth = parseInt(base) || 1920;
+        } else if (unitChoice === '3') {
+            CONFIG.unit = 'none';
         } else {
             CONFIG.unit = 'rem';
             CONFIG.baseWidth = 10;

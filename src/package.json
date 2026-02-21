@@ -1,18 +1,15 @@
 {
   "name": "loadinglazy",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "HTML 내 `<img>` 태그에 성능 최적화 속성을 자동 추가하고 크기를 계산하는 고성능 스크립트",
   "main": "convert_loading_lazy.js",
   "bin": "convert_loading_lazy.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build:exe": "pkg . --targets node18-win-x64 --output loadinglazy.exe"
+    "build:exe": "pkg . --targets node18-win-x64 --output ../loadinglazy.exe --compress GZip"
   },
   "pkg": {
-    "assets": [
-      "input/**/*",
-      "images/**/*"
-    ]
+    "assets": []
   },
   "repository": {
     "type": "git",

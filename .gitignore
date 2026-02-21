@@ -2,9 +2,7 @@ node_modules/
 output/
 test.png
 test.jpg
-input/test.html
-input/test.php
-input/test_*.html
+input/
 .gemini/
 images
 input
