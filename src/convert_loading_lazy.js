@@ -103,6 +103,7 @@ function processFile(fileName) {
             if (size) {
                 if (!$img.attr('width')) $img.attr('width', size.width);
                 if (!$img.attr('height')) $img.attr('height', size.height);
+                $img.attr('data-resized', 'true');
 
                 if (CONFIG.unit !== 'none') {
                     const widthValue = CONFIG.unit === 'vw' 
@@ -177,6 +178,9 @@ function processFile(fileName) {
                     }
                     if (!cleanAttributes.includes('height=')) {
                         cleanAttributes += ` height="${size.height}"`;
+                    }
+                    if (!cleanAttributes.includes('data-resized=')) {
+                        cleanAttributes += ` data-resized="true"`;
                     }
 
                     if (CONFIG.unit !== 'none') {
