@@ -309,8 +309,8 @@ async function run() {
         CONFIG.useLazy = process.argv[4] !== 'false';
         CONFIG.engine = process.argv[5] === 'cheerio' ? 'cheerio' : 'regex';
     } else {
-        const engineChoice = await askQuestion('변환 엔진을 선택하세요\n 1: 정규표현식(Regex)\n 2: 파서(Cheerio) / 실험적 기능\n [기본 1]: ');
-        CONFIG.engine = engineChoice === '2' ? 'cheerio' : 'regex';
+        const engineChoice = await askQuestion('변환 엔진을 선택하세요\n 1: 파서(Cheerio)\n 2: 정규표현식(Regex)\n [기본 1]: ');
+        CONFIG.engine = engineChoice === '2' ? 'regex' : 'cheerio';
 
         const unitChoice = await askQuestion('\n사용할 단위를 선택하세요\n 1: rem\n 2: vw\n 3: none(생략)\n [기본 1]: ');
         if (unitChoice === '2') {
