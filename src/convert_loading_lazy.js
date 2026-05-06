@@ -165,6 +165,9 @@ function processFile(fileName) {
         // xmlMode: true에서 발생하는 script, div, title 등 빈 태그의 셀프 클로징(/>) 현상을 복구
         // 브라우저 호환성을 위해 반드시 </script> 등 명시적 닫는 태그가 필요함
         content = content.replace(/<(script|div|span|p|a|iframe|canvas|video|audio|title|textarea|select|button)([^>]*?)\/>/gi, '<$1$2></$1>');
+        
+        // img 태그의 셀프 클로징(/>) 제거 (HTML5 표준 준수)
+        content = content.replace(/<img([^>]*?)\/>/gi, '<img$1>');
     } else {
         // --- [방식 B] 기존 정규표현식(Regex) 기반 처리 ---
         // 2. 부모 태그에 flex-cc 클래스 추가 로직 (ImgResize 로직 반영)
@@ -246,7 +249,7 @@ function processFile(fileName) {
                 extraAttrs += ' decoding="async"';
             }
 
-            const finalTag = `<img ${cleanAttributes}${extraAttrs} ${isSelfClosing ? '/' : ''}>`;
+            const finalTag = `<img ${cleanAttributes}${extraAttrs}>`;
             return finalTag.replace(/\s+/g, ' ').replace(/\s>/g, '>');
         });
     }
