@@ -168,6 +168,8 @@ function processFile(fileName) {
         
         // img 태그의 셀프 클로징(/>) 제거 (HTML5 표준 준수)
         content = content.replace(/<img([^>]*?)\/>/gi, '<img$1>');
+        // 불필요한 </img> 태그 제거
+        content = content.replace(/<\/img>/gi, '');
     } else {
         // --- [방식 B] 기존 정규표현식(Regex) 기반 처리 ---
         // 2. 부모 태그에 flex-cc 클래스 추가 로직 (ImgResize 로직 반영)
