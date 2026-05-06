@@ -119,12 +119,18 @@ function processFile(fileName) {
                     const widthValue = CONFIG.unit === 'vw' 
                         ? ((size.width / CONFIG.baseWidth) * 100).toFixed(4) + 'vw'
                         : (size.width / 10).toFixed(1) + 'rem';
+                    const aspectRatio = `${size.width} / ${size.height}`;
                     
                     let style = $img.attr('style') || '';
                     // width가 없으면 추가
                     if (!/width\s*:/i.test(style)) {
                         const separator = style.trim() && !style.trim().endsWith(';') ? ';' : '';
                         style = `${style}${separator} width: ${widthValue};`;
+                    }
+                    // aspect-ratio가 없으면 추가
+                    if (!/aspect-ratio\s*:/i.test(style)) {
+                        const separator = style.trim() && !style.trim().endsWith(';') ? ';' : '';
+                        style = `${style}${separator} aspect-ratio: ${aspectRatio};`;
                     }
                     // flex-shrink가 없으면 추가
                     if (!/flex-shrink\s*:/i.test(style)) {
@@ -201,6 +207,7 @@ function processFile(fileName) {
                         let widthValue = CONFIG.unit === 'vw' 
                             ? ((size.width / CONFIG.baseWidth) * 100).toFixed(4) + 'vw'
                             : (size.width / 10).toFixed(1) + 'rem';
+                        const aspectRatio = `${size.width} / ${size.height}`;
 
                         if (cleanAttributes.includes('style=')) {
                             // width 추가 (없을 때)
@@ -208,6 +215,13 @@ function processFile(fileName) {
                                 cleanAttributes = cleanAttributes.replace(/style=(["'])([^"']*)\1/i, (sMatch, quote, styleValue) => {
                                     const separator = styleValue.trim() && !styleValue.trim().endsWith(';') ? ';' : '';
                                     return `style=${quote}${styleValue}${separator} width: ${widthValue};${quote}`;
+                                });
+                            }
+                            // aspect-ratio 추가 (없을 때)
+                            if (!/style=["'][^"']*aspect-ratio\s*:/i.test(cleanAttributes)) {
+                                cleanAttributes = cleanAttributes.replace(/style=(["'])([^"']*)\1/i, (sMatch, quote, styleValue) => {
+                                    const separator = styleValue.trim() && !styleValue.trim().endsWith(';') ? ';' : '';
+                                    return `style=${quote}${styleValue}${separator} aspect-ratio: ${aspectRatio};${quote}`;
                                 });
                             }
                             // flex-shrink 추가 (없을 때)
@@ -218,7 +232,7 @@ function processFile(fileName) {
                                 });
                             }
                         } else {
-                            cleanAttributes += ` style="width: ${widthValue}; flex-shrink: 0;"`;
+                            cleanAttributes += ` style="width: ${widthValue}; aspect-ratio: ${aspectRatio}; flex-shrink: 0;"`;
                         }
                     }
                 }
@@ -249,7 +263,7 @@ function processFile(fileName) {
 
 async function run() {
     console.log('==========================================');
-    console.log('   Image Loading Lazy Converter v2.0.0');
+    console.log('   Image Loading Lazy Converter v2.1.0');
     console.log('==========================================\n');
 
     // 1. 필수 폴더 및 파일 확인 (있을 때까지 대기)
