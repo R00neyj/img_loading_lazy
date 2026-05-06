@@ -10,7 +10,7 @@ let CONFIG = {
     unit: 'rem',
     baseWidth: 1920,
     useLazy: true,
-    engine: 'regex' // 'regex' 또는 'cheerio'
+    engine: 'cheerio' // 'regex' 또는 'cheerio'
 };
 
 async function askQuestion(query) {
@@ -84,6 +84,16 @@ function processFile(fileName) {
         return placeholder;
     });
 
+    // 1.1 Eager 로딩 대상 미리 식별 (data-loading="eager" 컨테이너 내부 이미지)
+    const eagerImgSrcs = new Set();
+    try {
+        const $eager = cheerio.load(content, { xmlMode: true, decodeEntities: false });
+        $eager('[data-loading="eager"] img').each((i, el) => {
+            const src = $eager(el).attr('src');
+            if (src) eagerImgSrcs.add(src);
+        });
+    } catch (e) { /* ignore */ }
+
     if (CONFIG.engine === 'cheerio') {
         // --- [방식 A] Cheerio 파서 기반 처리 ---
         // xmlMode: true를 사용하여 HTML 구조 강제 이동(meta 태그가 body로 가는 현상 등)을 방지
@@ -126,7 +136,9 @@ function processFile(fileName) {
             }
 
             if (CONFIG.useLazy) {
-                if (!$img.attr('loading')) $img.attr('loading', 'lazy');
+                // 부모 중 data-loading="eager"가 있으면 eager, 아니면 lazy
+                const isEager = eagerImgSrcs.has(src) || $img.closest('[data-loading="eager"]').length > 0;
+                if (!$img.attr('loading')) $img.attr('loading', isEager ? 'eager' : 'lazy');
                 if (!$img.attr('decoding')) $img.attr('decoding', 'async');
             }
 
@@ -168,8 +180,10 @@ function processFile(fileName) {
             let cleanAttributes = isSelfClosing ? attributes.trim().slice(0, -1).trim() : attributes.trim();
             
             const srcMatch = cleanAttributes.match(/src=["']([^"']+)["']/i);
+            let isEager = false;
             if (srcMatch) {
                 const src = srcMatch[1];
+                isEager = eagerImgSrcs.has(src);
                 const size = getImageSize(src, htmlDir);
                 
                 if (size) {
@@ -212,7 +226,7 @@ function processFile(fileName) {
 
             let extraAttrs = '';
             if (CONFIG.useLazy && !cleanAttributes.includes('loading=')) {
-                extraAttrs += ' loading="lazy"';
+                extraAttrs += isEager ? ' loading="eager"' : ' loading="lazy"';
             }
             if (CONFIG.useLazy && !cleanAttributes.includes('decoding=')) {
                 extraAttrs += ' decoding="async"';
@@ -235,7 +249,7 @@ function processFile(fileName) {
 
 async function run() {
     console.log('==========================================');
-    console.log('   Image Loading Lazy Converter v1.9.0');
+    console.log('   Image Loading Lazy Converter v2.0.0');
     console.log('==========================================\n');
 
     // 1. 필수 폴더 및 파일 확인 (있을 때까지 대기)
@@ -260,6 +274,7 @@ async function run() {
             console.log('[알림] 대기 중: input 폴더에 처리할 파일(.html, .php)이 없습니다.');
             console.log('       1. input 폴더에 HTML/PHP 파일을 넣으세요.');
             console.log('       2. images 폴더에 소스 이미지들을 넣으세요.');
+            console.log('       3. Eager 로딩이 필요한 최상위 컨테이너에 data-loading="eager" 속성을 추가하세요.');
             await askQuestion('\n파일을 넣으셨다면 엔터를 눌러 계속 진행하세요 (종료: Ctrl+C)...');
             console.log('\n다시 확인 중...\n');
             continue;
