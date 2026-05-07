@@ -8,7 +8,7 @@ let CONFIG = {
     inputDir: path.join(process.cwd(), 'input'),
     outputDir: path.join(process.cwd(), 'output'),
     unit: 'rem',
-    baseWidth: 1920,
+    baseWidth: 1905,
     useLazy: true,
     engine: 'cheerio' // 'regex' 또는 'cheerio'
 };
@@ -264,7 +264,7 @@ function processFile(fileName) {
 
 async function run() {
     console.log('==========================================');
-    console.log('   Image Loading Lazy Converter v2.1.0');
+    console.log('   Image Loading Lazy Converter v2.2.1');
     console.log('==========================================\n');
 
     // 1. 필수 폴더 및 파일 확인 (있을 때까지 대기)
@@ -306,7 +306,7 @@ async function run() {
         } else {
             CONFIG.unit = argUnit === 'vw' ? 'vw' : 'rem';
         }
-        CONFIG.baseWidth = parseInt(process.argv[3]) || (CONFIG.unit === 'vw' ? 1920 : 10);
+        CONFIG.baseWidth = parseInt(process.argv[3]) || (CONFIG.unit === 'vw' ? 1905 : 10);
         CONFIG.useLazy = process.argv[4] !== 'false';
         CONFIG.engine = process.argv[5] === 'cheerio' ? 'cheerio' : 'regex';
     } else {
@@ -316,8 +316,17 @@ async function run() {
         const unitChoice = await askQuestion('\n사용할 단위를 선택하세요\n 1: rem\n 2: vw\n 3: none(생략)\n [기본 1]: ');
         if (unitChoice === '2') {
             CONFIG.unit = 'vw';
-            const base = await askQuestion(' > 기준 가로폭 입력 [기본 1920]: ');
-            CONFIG.baseWidth = parseInt(base) || 1920;
+            const resChoice = await askQuestion('\n기준 해상도를 선택하세요\n 1: FHD (1905px) [기본]\n 2: QHD (2545px)\n 3: 4K (3825px)\n 4: 직접 입력\n [기본 1]: ');
+            if (resChoice === '2') {
+                CONFIG.baseWidth = 2545;
+            } else if (resChoice === '3') {
+                CONFIG.baseWidth = 3825;
+            } else if (resChoice === '4') {
+                const base = await askQuestion(' > 기준 가로폭 입력: ');
+                CONFIG.baseWidth = parseInt(base) || 1905;
+            } else {
+                CONFIG.baseWidth = 1905;
+            }
         } else if (unitChoice === '3') {
             CONFIG.unit = 'none';
         } else {
