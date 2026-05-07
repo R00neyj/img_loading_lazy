@@ -10,7 +10,10 @@ let CONFIG = {
     unit: 'rem',
     baseWidth: 1905,
     useLazy: true,
-    engine: 'cheerio' // 'regex' 또는 'cheerio'
+    engine: 'cheerio', // 'regex' 또는 'cheerio'
+    useWidth: true,
+    useHeight: false,
+    useAspectRatio: true
 };
 
 async function askQuestion(query) {
@@ -111,7 +114,8 @@ function processFile(fileName) {
 
             const size = getImageSize(src, htmlDir);
             if (size) {
-                if (!$img.attr('width')) $img.attr('width', size.width);
+                if (CONFIG.useWidth && !$img.attr('width')) $img.attr('width', size.width);
+                if (CONFIG.useHeight && !$img.attr('height')) $img.attr('height', size.height);
                 $img.attr('data-resized', 'true');
 
                 if (CONFIG.unit !== 'none') {
@@ -127,7 +131,7 @@ function processFile(fileName) {
                         style = `${style}${separator} width: ${widthValue};`;
                     }
                     // aspect-ratio가 없으면 추가
-                    if (!/aspect-ratio\s*:/i.test(style)) {
+                    if (CONFIG.useAspectRatio && !/aspect-ratio\s*:/i.test(style)) {
                         const separator = style.trim() && !style.trim().endsWith(';') ? ';' : '';
                         style = `${style}${separator} aspect-ratio: ${aspectRatio};`;
                     }
@@ -197,8 +201,11 @@ function processFile(fileName) {
                 const size = getImageSize(src, htmlDir);
                 
                 if (size) {
-                    if (!cleanAttributes.includes('width=')) {
+                    if (CONFIG.useWidth && !cleanAttributes.includes('width=')) {
                         cleanAttributes += ` width="${size.width}"`;
+                    }
+                    if (CONFIG.useHeight && !cleanAttributes.includes('height=')) {
+                        cleanAttributes += ` height="${size.height}"`;
                     }
                     if (!cleanAttributes.includes('data-resized=')) {
                         cleanAttributes += ` data-resized="true"`;
@@ -219,7 +226,7 @@ function processFile(fileName) {
                                 });
                             }
                             // aspect-ratio 추가 (없을 때)
-                            if (!/style=["'][^"']*aspect-ratio\s*:/i.test(cleanAttributes)) {
+                            if (CONFIG.useAspectRatio && !/style=["'][^"']*aspect-ratio\s*:/i.test(cleanAttributes)) {
                                 cleanAttributes = cleanAttributes.replace(/style=(["'])([^"']*)\1/i, (sMatch, quote, styleValue) => {
                                     const separator = styleValue.trim() && !styleValue.trim().endsWith(';') ? ';' : '';
                                     return `style=${quote}${styleValue}${separator} aspect-ratio: ${aspectRatio};${quote}`;
@@ -233,7 +240,10 @@ function processFile(fileName) {
                                 });
                             }
                         } else {
-                            cleanAttributes += ` style="width: ${widthValue}; aspect-ratio: ${aspectRatio}; flex-shrink: 0;"`;
+                            let styleAttr = `width: ${widthValue};`;
+                            if (CONFIG.useAspectRatio) styleAttr += ` aspect-ratio: ${aspectRatio};`;
+                            styleAttr += ` flex-shrink: 0;`;
+                            cleanAttributes += ` style="${styleAttr}"`;
                         }
                     }
                 }
@@ -264,7 +274,7 @@ function processFile(fileName) {
 
 async function run() {
     console.log('==========================================');
-    console.log('   Image Loading Lazy Converter v2.2.1');
+    console.log('   Image Loading Lazy Converter v2.2.3');
     console.log('==========================================\n');
 
     // 1. 필수 폴더 및 파일 확인 (있을 때까지 대기)
@@ -299,7 +309,7 @@ async function run() {
 
     // 2. 설정 확인 (인자값 또는 대화형)
     if (process.argv.length > 2) {
-        // 인자 순서: unit, baseWidth, useLazy, engine
+        // 인자 순서: unit, baseWidth, useLazy, engine, useWidth, useHeight, useAspectRatio
         const argUnit = process.argv[2];
         if (argUnit === 'none') {
             CONFIG.unit = 'none';
@@ -309,6 +319,9 @@ async function run() {
         CONFIG.baseWidth = parseInt(process.argv[3]) || (CONFIG.unit === 'vw' ? 1905 : 10);
         CONFIG.useLazy = process.argv[4] !== 'false';
         CONFIG.engine = process.argv[5] === 'cheerio' ? 'cheerio' : 'regex';
+        CONFIG.useWidth = process.argv[6] !== 'false';
+        CONFIG.useHeight = process.argv[7] === 'true';
+        CONFIG.useAspectRatio = process.argv[8] !== 'false';
     } else {
         const engineChoice = await askQuestion('변환 엔진을 선택하세요\n 1: 파서(Cheerio)\n 2: 정규표현식(Regex)\n [기본 1]: ');
         CONFIG.engine = engineChoice === '2' ? 'regex' : 'cheerio';
@@ -334,8 +347,17 @@ async function run() {
             CONFIG.baseWidth = 10;
         }
 
-        const lazyChoice = await askQuestion('\n로딩 레이지(loading="lazy")를 적용하시겠습니까?\n Y: 예 (권장)\n N: 아니오\n [기본 Y]: ');
-        CONFIG.useLazy = lazyChoice.toLowerCase() !== 'n';
+        const lazyChoice = await askQuestion('\n로딩 레이지(loading="lazy")를 적용하시겠습니까?\n 1: 예 (권장)\n 2: 아니오\n [기본 1]: ');
+        CONFIG.useLazy = lazyChoice !== '2';
+
+        const widthChoice = await askQuestion('\nwidth 속성을 추가하시겠습니까?\n 1: 예\n 2: 아니오\n [기본 1]: ');
+        CONFIG.useWidth = widthChoice !== '2';
+
+        const heightChoice = await askQuestion('\nheight 속성을 추가하시겠습니까?\n 1: 예\n 2: 아니오\n [기본 2]: ');
+        CONFIG.useHeight = heightChoice === '1';
+
+        const arChoice = await askQuestion('\naspect-ratio 스타일을 추가하시겠습니까?\n 1: 예\n 2: 아니오\n [기본 1]: ');
+        CONFIG.useAspectRatio = arChoice !== '2';
     }
 
     if (!fs.existsSync(CONFIG.outputDir)) fs.mkdirSync(CONFIG.outputDir);

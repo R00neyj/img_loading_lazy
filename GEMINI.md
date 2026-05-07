@@ -1,5 +1,5 @@
 # Project Overview
-**img_loading_lazy** (v2.2.1) is a high-performance automated tool (CLI script) designed to improve web image loading performance and prevent Cumulative Layout Shift (CLS). It works by analyzing actual image files referenced in HTML, automatically adding explicit `width` attributes, and injecting optimization attributes like `loading="lazy"`, `decoding="async"`, and inline styles including `aspect-ratio` and `flex-shrink`. 
+**img_loading_lazy** (v2.2.3) is a high-performance automated tool (CLI script) designed to improve web image loading performance and prevent Cumulative Layout Shift (CLS). It works by analyzing actual image files referenced in HTML, automatically adding explicit `width` attributes, and injecting optimization attributes like `loading="lazy"`, `decoding="async"`, and inline styles including `aspect-ratio` and `flex-shrink`. 
 
 The tool supports two parsing engines: a safe Regular Expression engine and an advanced HTML parsing engine using `cheerio`. It also computes responsive widths using `rem` or `vw` units. Successfully processed `<img>` tags are marked with a `data-resized="true"` attribute.
 
