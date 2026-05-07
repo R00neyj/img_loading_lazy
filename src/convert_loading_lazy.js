@@ -112,7 +112,6 @@ function processFile(fileName) {
             const size = getImageSize(src, htmlDir);
             if (size) {
                 if (!$img.attr('width')) $img.attr('width', size.width);
-                if (!$img.attr('height')) $img.attr('height', size.height);
                 $img.attr('data-resized', 'true');
 
                 if (CONFIG.unit !== 'none') {
@@ -200,9 +199,6 @@ function processFile(fileName) {
                 if (size) {
                     if (!cleanAttributes.includes('width=')) {
                         cleanAttributes += ` width="${size.width}"`;
-                    }
-                    if (!cleanAttributes.includes('height=')) {
-                        cleanAttributes += ` height="${size.height}"`;
                     }
                     if (!cleanAttributes.includes('data-resized=')) {
                         cleanAttributes += ` data-resized="true"`;
